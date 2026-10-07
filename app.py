@@ -42,6 +42,20 @@ def remove_invalid_local_proxy() -> None:
 remove_invalid_local_proxy()
 
 
+def get_openai_api_key() -> str:
+    """로컬 .env 또는 Streamlit Cloud Secrets에서 API 키를 읽습니다."""
+    local_key = os.getenv("OPENAI_API_KEY", "").strip()
+    if local_key:
+        return local_key
+
+    # Streamlit Community Cloud에서는 앱 Settings의 Secrets를 사용합니다.
+    try:
+        cloud_key = st.secrets["OPENAI_API_KEY"]
+    except Exception:
+        cloud_key = ""
+    return str(cloud_key).strip()
+
+
 def read_pdf_documents() -> list[Document]:
     """DATA 폴더의 모든 PDF를 페이지 단위로 읽습니다."""
     documents: list[Document] = []
@@ -198,9 +212,14 @@ def main() -> None:
         )
         st.caption("대화 기록을 지우고 싶을 때만 초기화 버튼을 누르세요.")
 
-    if not os.getenv("OPENAI_API_KEY"):
-        st.error(".env 파일에 OPENAI_API_KEY를 입력한 뒤 앱을 다시 실행해 주세요.")
+    openai_api_key = get_openai_api_key()
+    if not openai_api_key:
+        st.error(
+            ".env 또는 Streamlit Cloud Secrets에 OPENAI_API_KEY를 설정한 뒤 앱을 다시 실행해 주세요."
+        )
         st.stop()
+    # Streamlit Cloud Secrets로 읽은 값도 LangChain이 사용할 수 있게 환경 변수에 넣습니다.
+    os.environ["OPENAI_API_KEY"] = openai_api_key
 
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
